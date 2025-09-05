@@ -77,12 +77,7 @@ if st.session_state.expenses:
     ax1.axis('equal')
     st.pyplot(fig1)
 
-    # Bar chart
-    st.write("### 📊 Monthly vs Yearly Spending")
-    fig2, ax2 = plt.subplots()
-    df.plot(kind="bar", x="Name", y=["Monthly", "Yearly"], ax=ax2)
-    plt.xticks(rotation=45)
-    st.pyplot(fig2)
+
 
     # Reset button
     if st.button("♻️ Reset All Expenses"):
@@ -90,3 +85,4 @@ if st.session_state.expenses:
         st.warning("All expenses have been reset.")
 else:
     st.info("ℹ️ Add at least one habit to see the results")
+
