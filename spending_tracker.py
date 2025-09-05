@@ -3,50 +3,75 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Page config
-st.set_page_config(page_title="Spending Tracker", page_icon="💸", layout="centered")
+st.set_page_config(page_title="Spending Calculator", page_icon="💸", layout="centered")
 
-st.title("💸 Spending Tracker (Multiple Habits)")
-st.write("Fill in your different habits below. You can add multiple rows at once, and the app will calculate your monthly and yearly spending in Algerian Dinar (DZD).")
+st.title("💸 Predict Your Spending")
+st.write("Enter your daily/weekly habits to see how much you spend monthly and yearly in Algerian Dinar (DZD), and discover how much you can save.")
 
-# Initial empty table
-if "expenses_df" not in st.session_state:
-    st.session_state.expenses_df = pd.DataFrame({
-        "Name": ["Coffee", "Transport", "Subscription"],  # example defaults
-        "Unit Cost (DZD)": [80, 200, 1000],
-        "Times/Day": [1, 2, 1],
-        "Days/Week": [7, 5, 7],
-        "Weeks/Month": [4, 4, 4],
-        "Months/Year": [12, 12, 12]
-    })
+# Store habits in session
+if "expenses" not in st.session_state:
+    st.session_state.expenses = []
 
-st.write("✍️ Edit or add habits below (you can add as many rows as you want):")
+# Input form
+with st.form("expense_form", clear_on_submit=True):
+    name = st.text_input("🔖 Expense Name")
+    unit_cost = st.number_input("💲 Unit cost (DZD)", min_value=0.0, format="%.2f")
+    times_per_day = st.number_input("⏱ Times per day", min_value=1, step=1)
+    days_per_week = st.number_input("📅 Days per week", min_value=1, max_value=7)
+    weeks_per_month = st.number_input("📆 Weeks per month", min_value=1, max_value=5)
+    months_per_year = st.number_input("🗓 Months per year", min_value=1, max_value=12)
 
-# Editable data grid
-df = st.data_editor(
-    st.session_state.expenses_df,
-    num_rows="dynamic",  # allow adding rows
-    use_container_width=True
-)
+    submitted = st.form_submit_button("➕ Add Expense")
+    if submitted and name:
+        monthly = unit_cost * times_per_day * days_per_week * weeks_per_month
+        yearly = monthly * months_per_year
+        st.session_state.expenses.append({
+            "Name": name,
+            "Monthly": monthly,
+            "Yearly": yearly
+        })
+        st.success(f"✅ Added {name}: {monthly:.2f} DZD/month , {yearly:.2f} DZD/year")
 
-# Save updates
-st.session_state.expenses_df = df
-
-# If table is not empty → calculate results
-if not df.empty:
-    df["Monthly"] = df["Unit Cost (DZD)"] * df["Times/Day"] * df["Days/Week"] * df["Weeks/Month"]
-    df["Yearly"] = df["Monthly"] * df["Months/Year"]
-
+# If expenses exist
+if st.session_state.expenses:
     st.subheader("📊 Results")
+
+    df = pd.DataFrame(st.session_state.expenses)
+
+    # Table
     st.dataframe(df.style.format({"Monthly": "{:.2f} DZD", "Yearly": "{:.2f} DZD"}))
 
+    # Totals
     total_monthly = df["Monthly"].sum()
     total_yearly = df["Yearly"].sum()
 
     st.metric("💵 Total Monthly Spending", f"{total_monthly:.2f} DZD")
     st.metric("💰 Total Yearly Spending", f"{total_yearly:.2f} DZD")
 
+    # 🔹 Saving scenarios
+    st.subheader("💡 Saving Scenarios")
+    chosen = st.selectbox("Choose a habit to test savings", df["Name"])
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        reduce_factor = st.slider("Reduce habit by (%)", 0, 100, 50, step=10)
+    with col2:
+        remove = st.checkbox("❌ Remove this habit completely")
+
+    # Calculate savings
+    habit = df[df["Name"] == chosen].iloc[0]
+    if remove:
+        saved_monthly = habit["Monthly"]
+        saved_yearly = habit["Yearly"]
+        st.success(f"🚫 By removing **{chosen}**, you save: {saved_monthly:.2f} DZD/month = {saved_yearly:.2f} DZD/year")
+    else:
+        saved_monthly = habit["Monthly"] * (reduce_factor / 100)
+        saved_yearly = habit["Yearly"] * (reduce_factor / 100)
+        st.success(f"✂️ By reducing **{chosen}** by {reduce_factor}%, you save: {saved_monthly:.2f} DZD/month = {saved_yearly:.2f} DZD/year")
+
     # Pie chart
-    st.write("### 🔵 Monthly Spending Distribution")
+    st.write("### 🔵 Distribution of Monthly Spending")
     fig1, ax1 = plt.subplots()
     ax1.pie(df["Monthly"], labels=df["Name"], autopct='%1.1f%%', startangle=90)
     ax1.axis('equal')
@@ -56,18 +81,12 @@ if not df.empty:
     st.write("### 📊 Monthly vs Yearly Spending")
     fig2, ax2 = plt.subplots()
     df.plot(kind="bar", x="Name", y=["Monthly", "Yearly"], ax=ax2)
+    plt.xticks(rotation=45)
     st.pyplot(fig2)
 
     # Reset button
-    if st.button("♻️ Reset All"):
-        st.session_state.expenses_df = pd.DataFrame({
-            "Name": [],
-            "Unit Cost (DZD)": [],
-            "Times/Day": [],
-            "Days/Week": [],
-            "Weeks/Month": [],
-            "Months/Year": []
-        })
-        st.experimental_rerun()
+    if st.button("♻️ Reset All Expenses"):
+        st.session_state.expenses = []
+        st.warning("All expenses have been reset.")
 else:
-    st.info("ℹ️ Add at least one habit in the table to see the results.")
+    st.info("ℹ️ Add at least one habit to see the results")
